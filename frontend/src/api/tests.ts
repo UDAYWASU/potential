@@ -34,12 +34,12 @@ export interface CreateTestRequest {
 export interface TestResponse {
   id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   mode: TestMode;
   status: TestStatus;
-  duration_minutes?: number;
+  duration_minutes?: number | null;
   created_at: string;
-  released_at?: string;
+  released_at?: string | null;
 }
 
 export interface ReleaseTestResponse {
@@ -62,7 +62,7 @@ export function createTest(data: CreateTestRequest) {
 
 export function getTests() {
   return apiRequest<TestResponse[]>(
-    "/api/tests",
+    "/api/department/tests",
   );
 }
 
@@ -113,4 +113,75 @@ export interface CreateTestRequest {
   };
   manual_questions?: ManualQuestion[];
   adaptive_subjects?: string[];
+}
+
+export interface DepartmentTestDetail {
+  id: string;
+  title: string;
+  description?: string;
+  mode: TestMode;
+  status: TestStatus;
+  duration_minutes?: number;
+  created_at: string;
+  released_at?: string;
+
+  question_count: number;
+  assigned_count: number;
+  in_progress_count: number;
+  submitted_count: number;
+  missed_count: number;
+}
+
+export type AssignmentStatus =
+  | "ASSIGNED"
+  | "IN_PROGRESS"
+  | "SUBMITTED"
+  | "MISSED";
+
+export interface DepartmentTestMonitorStudent {
+  assignment_id: string;
+  student_profile_id: string;
+  student_name: string;
+  status: AssignmentStatus;
+  started_at?: string;
+  submitted_at?: string;
+}
+
+export interface DepartmentTestMonitor {
+  test_id: string;
+  test_title: string;
+
+  assigned_count: number;
+  in_progress_count: number;
+  submitted_count: number;
+  missed_count: number;
+
+  students: DepartmentTestMonitorStudent[];
+}
+
+export function getTestDetail(testId: string) {
+  return apiRequest<DepartmentTestDetail>(
+    `/api/department/tests/${testId}`,
+  );
+}
+
+export function getTestMonitor(testId: string) {
+  return apiRequest<DepartmentTestMonitor>(
+    `/api/department/tests/${testId}/monitor`,
+  );
+}
+
+export interface CloseTestResponse {
+  message: string;
+  test_id: string;
+  status: TestStatus;
+}
+
+export function closeTest(testId: string) {
+  return apiRequest<CloseTestResponse>(
+    `/api/department/tests/${testId}/close`,
+    {
+      method: "POST",
+    },
+  );
 }

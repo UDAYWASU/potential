@@ -143,6 +143,7 @@ class DashboardTestSummary(BaseModel):
 class DepartmentDashboardResponse(BaseModel):
     total_students: int
     total_tests: int
+
     draft_tests: int
     released_tests: int
     closed_tests: int

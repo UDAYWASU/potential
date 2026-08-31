@@ -23,6 +23,10 @@ import DepartmentStudents from "./pages/department/DepartmentStudents";
 import DepartmentTests from "./pages/department/DepartmentTests";
 import TestCreationPage from "./pages/department/TestCreationPage";
 
+import DepartmentTestDetail from "./pages/department/DepartmentTestDetail";
+import DepartmentStudentDetail from "./pages/department/DepartmentStudentDetail";
+import DepartmentTestControls from "./pages/department/DepartmentTestControls";
+
 function App() {
   return (
     <BrowserRouter>
@@ -108,18 +112,24 @@ function App() {
                 </DepartmentLayout>
               }
             />
-
             <Route
-              path="/department/test-controls"
-              element={
-                <DepartmentLayout>
-                  <div>
-                    <h1>Test Controls</h1>
-                    <p>Coming next.</p>
-                  </div>
-                </DepartmentLayout>
-              }
-            />
+  path="/department/tests/:testId"
+  element={
+    <DepartmentLayout>
+      <DepartmentTestDetail />
+    </DepartmentLayout>
+  }
+/>
+
+<Route
+  path="/department/test-controls"
+  element={
+    <DepartmentLayout>
+      <DepartmentTestControls />
+    </DepartmentLayout>
+  }
+/>
+            
 
           </Route>
 
@@ -132,6 +142,14 @@ function App() {
               element={<StudentDashboard />}
             />
           </Route>
+          <Route
+  path="/department/students/:studentId"
+  element={
+    <DepartmentLayout>
+      <DepartmentStudentDetail />
+    </DepartmentLayout>
+  }
+/>
 
         </Route>
 

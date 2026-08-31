@@ -18,6 +18,27 @@ from app.services.department_service import (
     get_department_tests,
     get_department_dashboard,
 )
+from app.schemas.department import (
+    DepartmentProfileResponse,
+    DepartmentStudentResponse,
+    DepartmentTestResponse,
+    DepartmentDashboardResponse,
+    DepartmentTestDetailResponse,
+    DepartmentTestMonitorResponse,
+    DepartmentStudentDetailResponse,
+)
+
+from app.services.department_service import (
+    get_department_profile,
+    get_department_students,
+    get_department_tests,
+    get_department_dashboard,
+    get_department_test_detail,
+    get_department_test_monitor,
+    get_department_student_detail,
+    close_department_test,
+)
+
 
 from app.schemas.test import (
     CreateTestRequest,
@@ -118,7 +139,33 @@ def department_students(
         )
         for student in students
     ]
+@router.get(
+    "/students/{student_id}",
+    response_model=DepartmentStudentDetailResponse,
+)
+def department_student_detail(
+    student_id: UUID,
+    current_user: User = Depends(require_department),
+    db: Session = Depends(get_db),
+):
+    profile = get_profile_or_404(
+        db,
+        current_user,
+    )
 
+    student = get_department_student_detail(
+        db=db,
+        department_profile_id=profile.id,
+        student_profile_id=student_id,
+    )
+
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found.",
+        )
+
+    return student
 
 @router.get(
     "/tests",
@@ -138,6 +185,62 @@ def department_tests(
         db,
         profile.id,
     )
+
+@router.get(
+    "/tests/{test_id}",
+    response_model=DepartmentTestDetailResponse,
+)
+def department_test_detail(
+    test_id: UUID,
+    current_user: User = Depends(require_department),
+    db: Session = Depends(get_db),
+):
+    profile = get_profile_or_404(
+        db,
+        current_user,
+    )
+
+    test = get_department_test_detail(
+        db=db,
+        department_profile_id=profile.id,
+        test_id=test_id,
+    )
+
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Test not found.",
+        )
+
+    return test
+
+@router.get(
+    "/tests/{test_id}/monitor",
+    response_model=DepartmentTestMonitorResponse,
+)
+def department_test_monitor(
+    test_id: UUID,
+    current_user: User = Depends(require_department),
+    db: Session = Depends(get_db),
+):
+    profile = get_profile_or_404(
+        db,
+        current_user,
+    )
+
+    monitor = get_department_test_monitor(
+        db=db,
+        department_profile_id=profile.id,
+        test_id=test_id,
+    )
+
+    if not monitor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Test not found.",
+        )
+
+    return monitor
 
 
 @router.get(
@@ -256,4 +359,42 @@ async def upload_test_media(
         "media_type": media_type,
         "filename": file.filename,
         "content_type": file.content_type,
+    }
+
+@router.post(
+    "/tests/{test_id}/close",
+)
+def close_test(
+    test_id: UUID,
+    current_user: User = Depends(require_department),
+    db: Session = Depends(get_db),
+):
+    profile = get_profile_or_404(
+        db,
+        current_user,
+    )
+
+    try:
+        test = close_department_test(
+            db=db,
+            department_profile_id=profile.id,
+            test_id=test_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    if not test:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Test not found.",
+        )
+
+    return {
+        "message": "Test closed successfully.",
+        "test_id": str(test.id),
+        "status": test.status.value,
     }
