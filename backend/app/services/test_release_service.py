@@ -208,11 +208,10 @@ def _create_assignment_questions(
 
         for question in manual_questions:
 
-            snapshot = {
-                "question_content": question.question_content,
-                "answer": question.answer,
-                "question_metadata": question.question_metadata,
-            }
+            snapshot = question.question_content.copy()
+            
+            if question.question_metadata:
+                snapshot["question_metadata"] = question.question_metadata
 
             assignment_question = AssignmentQuestion(
                 assignment_id=assignment.id,

@@ -27,25 +27,44 @@ import DepartmentTestDetail from "./pages/department/DepartmentTestDetail";
 import DepartmentStudentDetail from "./pages/department/DepartmentStudentDetail";
 import DepartmentTestControls from "./pages/department/DepartmentTestControls";
 
+import StudentTestAttempt from "./pages/student/StudentTestAttempt";
+
+
 function App() {
   return (
     <BrowserRouter>
+
       <Routes>
 
-        {/* ==================== PUBLIC ROUTES ==================== */}
+        {/* =====================================================
+            PUBLIC ROUTES
+        ===================================================== */}
 
-        <Route path="/" element={<LandingPage />} />
+        <Route
+          path="/"
+          element={<LandingPage />}
+        />
 
-        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/login"
+          element={<LoginPage />}
+        />
 
-        <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/register"
+          element={<RegisterPage />}
+        />
 
 
-        {/* ==================== PROTECTED ROUTES ==================== */}
+        {/* =====================================================
+            PROTECTED ROUTES
+        ===================================================== */}
 
         <Route element={<ProtectedRoute />}>
 
-          {/* Common Dashboard */}
+          {/* =================================================
+              COMMON DASHBOARD
+          ================================================= */}
 
           <Route
             path="/dashboard"
@@ -53,29 +72,53 @@ function App() {
           />
 
 
-          {/* ==================== ADMIN ==================== */}
+          {/* =================================================
+              ADMIN
+          ================================================= */}
 
-          <Route element={<RoleRoute allowedRole="ADMIN" />}>
+          <Route
+            element={
+              <RoleRoute allowedRole="ADMIN" />
+            }
+          >
+
             <Route
               path="/admin"
               element={<AdminDashboard />}
             />
+
           </Route>
 
 
-          {/* ==================== TPO ==================== */}
+          {/* =================================================
+              TPO
+          ================================================= */}
 
-          <Route element={<RoleRoute allowedRole="TPO" />}>
+          <Route
+            element={
+              <RoleRoute allowedRole="TPO" />
+            }
+          >
+
             <Route
               path="/tpo"
               element={<TpoDashboard />}
             />
+
           </Route>
 
 
-          {/* ==================== DEPARTMENT ==================== */}
+          {/* =================================================
+              DEPARTMENT
+          ================================================= */}
 
-          <Route element={<RoleRoute allowedRole="DEPARTMENT" />}>
+          <Route
+            element={
+              <RoleRoute allowedRole="DEPARTMENT" />
+            }
+          >
+
+            {/* Department Dashboard */}
 
             <Route
               path="/department"
@@ -86,6 +129,9 @@ function App() {
               }
             />
 
+
+            {/* Department Students */}
+
             <Route
               path="/department/students"
               element={
@@ -94,6 +140,9 @@ function App() {
                 </DepartmentLayout>
               }
             />
+
+
+            {/* Department Tests */}
 
             <Route
               path="/department/tests"
@@ -104,6 +153,9 @@ function App() {
               }
             />
 
+
+            {/* Create Test */}
+
             <Route
               path="/department/tests/create"
               element={
@@ -112,58 +164,104 @@ function App() {
                 </DepartmentLayout>
               }
             />
-            <Route
-  path="/department/tests/:testId"
-  element={
-    <DepartmentLayout>
-      <DepartmentTestDetail />
-    </DepartmentLayout>
-  }
-/>
 
-<Route
-  path="/department/test-controls"
-  element={
-    <DepartmentLayout>
-      <DepartmentTestControls />
-    </DepartmentLayout>
-  }
-/>
-            
+
+            {/* Test Detail */}
+
+            <Route
+              path="/department/tests/:testId"
+              element={
+                <DepartmentLayout>
+                  <DepartmentTestDetail />
+                </DepartmentLayout>
+              }
+            />
+
+
+            {/* Test Controls */}
+
+            <Route
+              path="/department/test-controls"
+              element={
+                <DepartmentLayout>
+                  <DepartmentTestControls />
+                </DepartmentLayout>
+              }
+            />
+
+
+            {/* Student Detail */}
+
+            <Route
+              path="/department/students/:studentId"
+              element={
+                <DepartmentLayout>
+                  <DepartmentStudentDetail />
+                </DepartmentLayout>
+              }
+            />
 
           </Route>
 
 
-          {/* ==================== STUDENT ==================== */}
+          {/* =================================================
+              STUDENT
+          ================================================= */}
 
-          <Route element={<RoleRoute allowedRole="STUDENT" />}>
+          <Route
+            element={
+              <RoleRoute allowedRole="STUDENT" />
+            }
+          >
+
+            {/* Student Dashboard */}
+
             <Route
               path="/student"
               element={<StudentDashboard />}
             />
-          </Route>
-          <Route
-  path="/department/students/:studentId"
-  element={
-    <DepartmentLayout>
-      <DepartmentStudentDetail />
-    </DepartmentLayout>
-  }
+
+
+            {/* =================================================
+                4C — STUDENT TEST ATTEMPT
+
+                IMPORTANT:
+                This MUST match the URL used by
+                StudentDashboard.tsx:
+
+                /student/assignments/:assignmentId
+            ================================================= */}
+
+            <Route
+  path="/student/tests/:assignmentId"
+  element={<StudentTestAttempt />}
 />
+
+
+          </Route>
 
         </Route>
 
 
-        {/* ==================== FALLBACK ==================== */}
+        {/* =====================================================
+            FALLBACK
+        ===================================================== */}
 
         <Route
           path="*"
-          element={<Navigate to="/department" replace />}
+          element={
+            <Navigate
+              to="/dashboard"
+              replace
+            />
+          }
         />
 
       </Routes>
+
     </BrowserRouter>
   );
 }
+
 
 export default App;

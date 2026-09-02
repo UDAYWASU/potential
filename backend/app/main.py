@@ -9,6 +9,7 @@ from app.services.admin_service import create_admin_if_not_exists
 from app.api.department import router as department_router
 from app.api.auth import router as auth_router
 from app.api.tests import router as tests_router
+from app.api.student import router as student_router
 
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
@@ -45,6 +46,9 @@ app.include_router(auth_router)
 app.include_router(department_router)
 app.include_router(tests_router)
 app.include_router(uploads_router)
+app.include_router(student_router)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
