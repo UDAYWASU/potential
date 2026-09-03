@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -22,6 +22,10 @@ export default function StudentTestAttempt() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+
+  // debounce handles per question id, so switching questions doesn't cancel
+  // a pending save for a different question.
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
     if (!assignmentId) {
@@ -62,32 +66,72 @@ export default function StudentTestAttempt() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secondsLeft, attempt?.status]);
 
-  async function handleAnswer(questionId: string, answer: Record<string, unknown>) {
-    if (!assignmentId || !attempt) return;
+  // Cleanup any pending debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimers.current).forEach(clearTimeout);
+    };
+  }, []);
 
-    try {
-      setSaving(true);
-      await saveStudentAnswer(assignmentId, questionId, answer);
+  // Updates local state IMMEDIATELY (every keystroke) — no network call here,
+  // so nothing about typing itself can disable/remount the input.
+  function updateLocalAnswer(questionId: string, answer: Record<string, unknown>) {
+    setAttempt((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        questions: current.questions.map((question) =>
+          question.question_id === questionId
+            ? { ...question, answer, is_answered: true }
+            : question,
+        ),
+      };
+    });
+  }
 
-      setAttempt((current) => {
-        if (!current) return current;
-        return {
-          ...current,
-          questions: current.questions.map((question) =>
-            question.question_id === questionId
-              ? { ...question, answer, is_answered: true }
-              : question,
-          ),
-        };
-      });
+  // Actually persists to the backend. Debounced for free-text inputs,
+  // called directly (no debounce) for MCQ clicks.
+  const persistAnswer = useCallback(
+    async (questionId: string, answer: Record<string, unknown>) => {
+      if (!assignmentId) return;
 
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1200);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save answer.");
-    } finally {
-      setSaving(false);
+      try {
+        setSaving(true);
+        await saveStudentAnswer(assignmentId, questionId, answer);
+        setSavedFlash(true);
+        setTimeout(() => setSavedFlash(false), 1200);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to save answer.");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [assignmentId],
+  );
+
+  // For typing (textarea): update local state now, save after a pause.
+  function handleAnswerDebounced(questionId: string, answer: Record<string, unknown>) {
+    updateLocalAnswer(questionId, answer);
+
+    if (debounceTimers.current[questionId]) {
+      clearTimeout(debounceTimers.current[questionId]);
     }
+
+    debounceTimers.current[questionId] = setTimeout(() => {
+      persistAnswer(questionId, answer);
+    }, 600);
+  }
+
+  // For discrete choices (MCQ radio): update + save immediately, no debounce needed.
+  function handleAnswerImmediate(questionId: string, answer: Record<string, unknown>) {
+    updateLocalAnswer(questionId, answer);
+
+    if (debounceTimers.current[questionId]) {
+      clearTimeout(debounceTimers.current[questionId]);
+      delete debounceTimers.current[questionId];
+    }
+
+    persistAnswer(questionId, answer);
   }
 
   async function handleSubmit(auto = false) {
@@ -107,6 +151,15 @@ export default function StudentTestAttempt() {
     try {
       setSubmitting(true);
       setError("");
+
+      // Flush any pending debounced saves before submitting, so the last
+      // few keystrokes aren't lost if the student submits quickly.
+      const pending = Object.keys(debounceTimers.current);
+      for (const questionId of pending) {
+        clearTimeout(debounceTimers.current[questionId]);
+        delete debounceTimers.current[questionId];
+      }
+
       await submitStudentTest(assignmentId);
       navigate("/student");
     } catch (err) {
@@ -252,9 +305,10 @@ export default function StudentTestAttempt() {
         {activeQuestion && (
           <div className="min-w-0">
             <QuestionCard
+              key={activeQuestion.question_id}
               question={activeQuestion}
-              disabled={saving}
-              onAnswer={handleAnswer}
+              onAnswerDebounced={handleAnswerDebounced}
+              onAnswerImmediate={handleAnswerImmediate}
             />
 
             {/* Prev / Next */}
@@ -381,17 +435,15 @@ export default function StudentTestAttempt() {
 
 function QuestionCard({
   question,
-  disabled,
-  onAnswer,
+  onAnswerDebounced,
+  onAnswerImmediate,
 }: {
   question: StudentTestAttemptData["questions"][number];
-  disabled: boolean;
-  onAnswer: (questionId: string, answer: Record<string, unknown>) => void;
+  onAnswerDebounced: (questionId: string, answer: Record<string, unknown>) => void;
+  onAnswerImmediate: (questionId: string, answer: Record<string, unknown>) => void;
 }) {
   const content = question.question as Record<string, unknown>;
 
-  // question_content can be a nested object (manual/automatic snapshot)
-  // or, in older/looser shapes, fields sit flat on `content` itself.
   const nested =
     typeof content["question_content"] === "object" && content["question_content"] !== null
       ? (content["question_content"] as Record<string, unknown>)
@@ -424,8 +476,6 @@ function QuestionCard({
 
   const options = pickOptions(nested?.["options"], content["options"]);
 
-  // question_type is the reliable signal for how to render the answer input.
-  // Fall back to "options present" only if question_type is missing entirely.
   const questionType =
     typeof content["question_type"] === "string" ? (content["question_type"] as string) : undefined;
 
@@ -478,15 +528,14 @@ function QuestionCard({
                     selected
                       ? "border-[#7a4a25] bg-[#efe6d2]"
                       : "border-[#d8cbb0] bg-white hover:bg-[#faf7ef]"
-                  } ${disabled ? "opacity-70 cursor-not-allowed" : ""}`}
+                  }`}
                 >
                   <input
                     type="radio"
                     name={question.question_id}
                     value={value}
                     checked={selected}
-                    disabled={disabled}
-                    onChange={() => onAnswer(question.question_id, { answer: value })}
+                    onChange={() => onAnswerImmediate(question.question_id, { answer: value })}
                     className="mt-0.5 accent-[#7a4a25]"
                   />
                   <span className="text-sm text-[#2b2318] leading-relaxed">{value}</span>
@@ -503,9 +552,8 @@ function QuestionCard({
       ) : (
         <textarea
           rows={questionType === "CODING" ? 12 : 8}
-          disabled={disabled}
-          value={typeof currentAnswer === "string" ? currentAnswer : ""}
-          onChange={(event) => onAnswer(question.question_id, { answer: event.target.value })}
+          defaultValue={typeof currentAnswer === "string" ? currentAnswer : ""}
+          onChange={(event) => onAnswerDebounced(question.question_id, { answer: event.target.value })}
           placeholder={questionType === "CODING" ? "Write your code here..." : "Type your answer here..."}
           className={`w-full border border-[#c9b98f] bg-white px-4 py-3 text-sm text-[#2b2318] leading-relaxed focus:outline-none focus:border-[#7a4a25] focus:ring-1 focus:ring-[#7a4a25] transition-colors resize-y ${
             questionType === "CODING" ? "font-mono" : ""
