@@ -16,6 +16,9 @@ from pathlib import Path
 from app.api.uploads import router as uploads_router
 from fastapi.staticfiles import StaticFiles
 
+from app.api import auth
+from app.api import registration
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
@@ -47,7 +50,8 @@ app.include_router(department_router)
 app.include_router(tests_router)
 app.include_router(uploads_router)
 app.include_router(student_router)
-
+app.include_router(auth.router)
+app.include_router(registration.router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,19 +1,27 @@
-// StudentRegistrationForm.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+
 import { registerStudent } from "../../api/auth";
 import type { StudentRegistrationData } from "../../api/auth";
+import {
+  getRegistrationDepartments,
+  type RegistrationDepartment,
+} from "../../api/registration";
 
 interface Props {
   onBack: () => void;
   onSuccess: (message: string) => void;
 }
 
-const labelCls = "block text-xs tracking-wide uppercase text-[#8a7a5c] mb-2 mt-5 first:mt-0";
+const labelCls =
+  "block text-xs tracking-wide uppercase text-[#8a7a5c] mb-2 mt-5 first:mt-0";
 const inputCls =
   "w-full border border-[#c9b98f] bg-white px-4 py-2.5 text-sm text-[#2b2318] focus:outline-none focus:border-[#7a4a25] focus:ring-1 focus:ring-[#7a4a25] transition-colors";
 
-export default function StudentRegistrationForm({ onBack, onSuccess }: Props) {
+export default function StudentRegistrationForm({
+  onBack,
+  onSuccess,
+}: Props) {
   const [form, setForm] = useState({
     full_name: "",
     college_email: "",
@@ -33,7 +41,33 @@ export default function StudentRegistrationForm({ onBack, onSuccess }: Props) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+  const [departments, setDepartments] = useState<RegistrationDepartment[]>(
+    []
+  );
+
+  const [loadingDepartments, setLoadingDepartments] = useState(true);
+
+  useEffect(() => {
+    async function loadDepartments() {
+      try {
+        setLoadingDepartments(true);
+
+        const response = await getRegistrationDepartments();
+
+        setDepartments(response.departments);
+      } catch (error) {
+        console.error("Failed to load departments:", error);
+      } finally {
+        setLoadingDepartments(false);
+      }
+    }
+
+    loadDepartments();
+  }, []);
+
+  function handleChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
@@ -72,7 +106,11 @@ export default function StudentRegistrationForm({ onBack, onSuccess }: Props) {
       const response = await registerStudent(data);
       onSuccess(response.message);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Registration failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -88,54 +126,118 @@ export default function StudentRegistrationForm({ onBack, onSuccess }: Props) {
         >
           ← Change account type
         </button>
-        <h2 className="mt-3 text-lg font-serif font-medium text-[#2b2318]">Student Registration</h2>
-        <p className="mt-1 text-sm text-[#8a7a5c]">Your account can be used immediately after registration.</p>
+
+        <h2 className="mt-3 text-lg font-serif font-medium text-[#2b2318]">
+          Student Registration
+        </h2>
+
+        <p className="mt-1 text-sm text-[#8a7a5c]">
+          Your account can be used immediately after registration.
+        </p>
       </div>
 
       {error && (
-        <div role="alert" className="mb-5 border border-[#c98a5f] bg-[#f6e3d3] text-[#7a3a1a] text-sm px-4 py-3">
+        <div
+          role="alert"
+          className="mb-5 border border-[#c98a5f] bg-[#f6e3d3] text-[#7a3a1a] text-sm px-4 py-3"
+        >
           {error}
         </div>
       )}
 
       <label className={labelCls}>
         Full Name
-        <input className={inputCls} name="full_name" value={form.full_name} onChange={handleChange} required />
+        <input
+          className={inputCls}
+          name="full_name"
+          value={form.full_name}
+          onChange={handleChange}
+          required
+        />
       </label>
 
       <label className={labelCls}>
         College Email
-        <input className={inputCls} type="email" name="college_email" value={form.college_email} onChange={handleChange} required />
+        <input
+          className={inputCls}
+          type="email"
+          name="college_email"
+          value={form.college_email}
+          onChange={handleChange}
+          required
+        />
       </label>
 
       <label className={labelCls}>
         Personal Email
-        <input className={inputCls} type="email" name="personal_email" value={form.personal_email} onChange={handleChange} required />
+        <input
+          className={inputCls}
+          type="email"
+          name="personal_email"
+          value={form.personal_email}
+          onChange={handleChange}
+          required
+        />
       </label>
 
       <label className={labelCls}>
         Password
-        <input className={inputCls} type="password" name="password" value={form.password} onChange={handleChange} required minLength={8} />
+        <input
+          className={inputCls}
+          type="password"
+          name="password"
+          value={form.password}
+          onChange={handleChange}
+          required
+          minLength={8}
+        />
       </label>
 
       <label className={labelCls}>
         Confirm Password
-        <input className={inputCls} type="password" name="confirm_password" value={form.confirm_password} onChange={handleChange} required minLength={8} />
+        <input
+          className={inputCls}
+          type="password"
+          name="confirm_password"
+          value={form.confirm_password}
+          onChange={handleChange}
+          required
+          minLength={8}
+        />
       </label>
 
       <label className={labelCls}>
         Phone Number
-        <input className={inputCls} name="phone_number" value={form.phone_number} onChange={handleChange} required />
+        <input
+          className={inputCls}
+          name="phone_number"
+          value={form.phone_number}
+          onChange={handleChange}
+          required
+        />
       </label>
 
       <label className={labelCls}>
         Date of Birth
-        <input className={inputCls} type="date" name="date_of_birth" value={form.date_of_birth} onChange={handleChange} required />
+        <input
+          className={inputCls}
+          type="date"
+          name="date_of_birth"
+          value={form.date_of_birth}
+          onChange={handleChange}
+          required
+        />
       </label>
 
       <label className={labelCls}>
         Gender
-        <select className={inputCls} name="gender" value={form.gender} onChange={handleChange} required>
+        <select
+          className={inputCls}
+          name="gender"
+          value={form.gender}
+          onChange={handleChange}
+          required
+        >
           <option value="">Select gender</option>
           <option value="MALE">Male</option>
           <option value="FEMALE">Female</option>
@@ -146,19 +248,39 @@ export default function StudentRegistrationForm({ onBack, onSuccess }: Props) {
 
       <label className={labelCls}>
         Exam Roll Number
-        <input className={inputCls} name="exam_roll_number" value={form.exam_roll_number} onChange={handleChange} required />
+        <input
+          className={inputCls}
+          name="exam_roll_number"
+          value={form.exam_roll_number}
+          onChange={handleChange}
+          required
+        />
       </label>
 
-      <label className={labelCls}>
-        Department Profile ID
-        <input
+      <label className={labelCls} htmlFor="department_profile_id">
+        Select Department
+        <select
+          id="department_profile_id"
           className={inputCls}
           name="department_profile_id"
           value={form.department_profile_id}
           onChange={handleChange}
+          disabled={loadingDepartments}
           required
-          placeholder="Department profile UUID"
-        />
+        >
+          <option value="">
+            {loadingDepartments
+              ? "Loading departments..."
+              : "Select a department"}
+          </option>
+
+          {departments.map((department) => (
+            <option key={department.id} value={department.id}>
+              {department.department_name} — {department.college_name} — TPO:{" "}
+              {department.tpo_name}
+            </option>
+          ))}
+        </select>
       </label>
 
       <label className={labelCls}>
@@ -175,12 +297,28 @@ export default function StudentRegistrationForm({ onBack, onSuccess }: Props) {
 
       <label className={labelCls}>
         Batch Year
-        <input className={inputCls} type="number" name="batch_year" value={form.batch_year} onChange={handleChange} required min="2000" />
+        <input
+          className={inputCls}
+          type="number"
+          name="batch_year"
+          value={form.batch_year}
+          onChange={handleChange}
+          required
+          min="2000"
+        />
       </label>
 
       <label className={labelCls}>
         Graduation Year
-        <input className={inputCls} type="number" name="graduation_year" value={form.graduation_year} onChange={handleChange} required min="2000" />
+        <input
+          className={inputCls}
+          type="number"
+          name="graduation_year"
+          value={form.graduation_year}
+          onChange={handleChange}
+          required
+          min="2000"
+        />
       </label>
 
       <button
