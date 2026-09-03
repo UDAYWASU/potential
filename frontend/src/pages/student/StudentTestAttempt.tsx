@@ -386,204 +386,132 @@ function QuestionCard({
 }: {
   question: StudentTestAttemptData["questions"][number];
   disabled: boolean;
-  onAnswer: (
-    questionId: string,
-    answer: Record<string, unknown>,
-  ) => void;
+  onAnswer: (questionId: string, answer: Record<string, unknown>) => void;
 }) {
-  const content = question.question;
+  const content = question.question as Record<string, unknown>;
 
-  /*
-   * ============================================================
-   * QUESTION CONTENT
-   * ============================================================
-   *
-   * Manual:
-   *
-   * {
-   *   question_content: {
-   *     text: "what is normalization?"
-   *   }
-   * }
-   *
-   * Automatic may have a different snapshot structure.
-   */
+  // question_content can be a nested object (manual/automatic snapshot)
+  // or, in older/looser shapes, fields sit flat on `content` itself.
+  const nested =
+    typeof content["question_content"] === "object" && content["question_content"] !== null
+      ? (content["question_content"] as Record<string, unknown>)
+      : null;
 
-  const questionContent =
-    content["question_content"];
-
-  let questionText = "Question";
-
-  if (
-    typeof questionContent === "object" &&
-    questionContent !== null &&
-    "text" in questionContent &&
-    typeof questionContent.text === "string"
-  ) {
-    questionText = questionContent.text;
-  } else if (
-    typeof content["text"] === "string"
-  ) {
-    questionText = content["text"];
-  } else if (
-    typeof content["question"] === "string"
-  ) {
-    questionText = content["question"];
-  } else if (
-    typeof content["question_content"] === "string"
-  ) {
-    questionText = content["question_content"];
+  function pickString(...candidates: unknown[]): string | undefined {
+    for (const c of candidates) {
+      if (typeof c === "string" && c.trim().length > 0) return c;
+    }
+    return undefined;
   }
 
+  const questionText =
+    pickString(
+      nested?.["text"],
+      content["text"],
+      content["question"],
+      typeof content["question_content"] === "string" ? content["question_content"] : undefined,
+    ) ?? "Question";
 
-  /*
-   * ============================================================
-   * OPTIONS
-   * ============================================================
-   */
+  const imageUrl = pickString(nested?.["image_url"], content["image_url"]);
+  const audioUrl = pickString(nested?.["audio_url"], content["audio_url"]);
 
-  let options: unknown[] = [];
-
-  if (
-    Array.isArray(content["options"])
-  ) {
-    options = content["options"];
+  function pickOptions(...candidates: unknown[]): unknown[] {
+    for (const c of candidates) {
+      if (Array.isArray(c) && c.length > 0) return c;
+    }
+    return [];
   }
 
-  if (
-    options.length === 0 &&
-    typeof questionContent === "object" &&
-    questionContent !== null &&
-    "options" in questionContent &&
-    Array.isArray(questionContent.options)
-  ) {
-    options = questionContent.options;
-  }
+  const options = pickOptions(nested?.["options"], content["options"]);
 
+  // question_type is the reliable signal for how to render the answer input.
+  // Fall back to "options present" only if question_type is missing entirely.
+  const questionType =
+    typeof content["question_type"] === "string" ? (content["question_type"] as string) : undefined;
 
-  /*
-   * ============================================================
-   * CURRENT ANSWER
-   * ============================================================
-   */
+  const isMcq = questionType ? questionType === "MCQ" : options.length > 0;
 
-  const currentAnswer =
-    question.answer?.["answer"];
-
-
-  /*
-   * ============================================================
-   * RENDER
-   * ============================================================
-   */
+  const currentAnswer = question.answer?.["answer"];
 
   return (
-    <article>
-
-      <h2>
-        Question {question.sequence_number}
-      </h2>
-
-
-      <p>
-        {questionText}
-      </p>
-
-
-      {question.marks !== null &&
-        question.marks !== undefined && (
-
-          <p>
-            Marks: {question.marks}
-          </p>
-
+    <article className="border border-[#d8cbb0] bg-white/70 p-7 sm:p-9">
+      <div className="flex items-center justify-between mb-6">
+        <span className="text-xs tracking-[0.15em] uppercase text-[#8a7a5c]">
+          Question {question.sequence_number}
+        </span>
+        {question.marks !== null && question.marks !== undefined && (
+          <span className="text-xs text-[#8a7a5c]">
+            {question.marks} mark{question.marks !== 1 ? "s" : ""}
+          </span>
         )}
+      </div>
 
+      <p className="text-lg text-[#2b2318] leading-relaxed mb-4">{questionText}</p>
 
-      {/* ======================================================
-          MCQ / OPTIONS
-      ====================================================== */}
+      {imageUrl && (
+        <img
+          src={imageUrl}
+          alt="Question attachment"
+          className="mb-5 max-h-80 border border-[#d8cbb0] object-contain"
+        />
+      )}
 
-      {options.length > 0 ? (
+      {audioUrl && (
+        <audio controls src={audioUrl} className="mb-5 w-full">
+          Your browser does not support audio playback.
+        </audio>
+      )}
 
-        <div>
+      <div className="mb-2" />
 
-          {options.map(
-            (option, index) => {
-
-              const value =
-                typeof option === "string"
-                  ? option
-                  : JSON.stringify(option);
-
-              const selected =
-                currentAnswer === value;
+      {isMcq ? (
+        options.length > 0 ? (
+          <div className="space-y-3">
+            {options.map((option, index) => {
+              const value = typeof option === "string" ? option : JSON.stringify(option);
+              const selected = currentAnswer === value;
 
               return (
-
                 <label
                   key={index}
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                  }}
+                  className={`flex items-start gap-3 px-5 py-4 border cursor-pointer transition-colors ${
+                    selected
+                      ? "border-[#7a4a25] bg-[#efe6d2]"
+                      : "border-[#d8cbb0] bg-white hover:bg-[#faf7ef]"
+                  } ${disabled ? "opacity-70 cursor-not-allowed" : ""}`}
                 >
-
                   <input
                     type="radio"
                     name={question.question_id}
                     value={value}
                     checked={selected}
                     disabled={disabled}
-                    onChange={() =>
-                      onAnswer(
-                        question.question_id,
-                        {
-                          answer: value,
-                        },
-                      )
-                    }
+                    onChange={() => onAnswer(question.question_id, { answer: value })}
+                    className="mt-0.5 accent-[#7a4a25]"
                   />
-
-                  {" "}
-
-                  {value}
-
+                  <span className="text-sm text-[#2b2318] leading-relaxed">{value}</span>
                 </label>
-
               );
-
-            },
-          )}
-
-        </div>
-
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-[#7a3a1a] border border-[#c98a5f] bg-[#f6e3d3] px-4 py-3">
+            This question is marked as multiple choice but has no options in its data. Contact your
+            department if this looks wrong.
+          </p>
+        )
       ) : (
-
-        /* ====================================================
-           WRITTEN / MANUAL QUESTION
-           ==================================================== */
-
         <textarea
-          rows={6}
+          rows={questionType === "CODING" ? 12 : 8}
           disabled={disabled}
-          value={
-            typeof currentAnswer === "string"
-              ? currentAnswer
-              : ""
-          }
-          onChange={(event) =>
-            onAnswer(
-              question.question_id,
-              {
-                answer: event.target.value,
-              },
-            )
-          }
+          value={typeof currentAnswer === "string" ? currentAnswer : ""}
+          onChange={(event) => onAnswer(question.question_id, { answer: event.target.value })}
+          placeholder={questionType === "CODING" ? "Write your code here..." : "Type your answer here..."}
+          className={`w-full border border-[#c9b98f] bg-white px-4 py-3 text-sm text-[#2b2318] leading-relaxed focus:outline-none focus:border-[#7a4a25] focus:ring-1 focus:ring-[#7a4a25] transition-colors resize-y ${
+            questionType === "CODING" ? "font-mono" : ""
+          }`}
         />
-
       )}
-
     </article>
   );
 }
