@@ -7,10 +7,15 @@ type Options = {
   onLimitReached: () => void;
 };
 
+// True for real Fullscreen API mode, or a window that fills the whole screen (F11 mode)
+const isFs = () =>
+  !!document.fullscreenElement ||
+  (window.innerHeight === screen.height && window.innerWidth === screen.width);
+
 export function useExamProctoring({ enabled, maxViolations, onViolation, onLimitReached }: Options) {
   const [violations, setViolations] = useState(0);
   const [warning, setWarning] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  const [isFullscreen, setIsFullscreen] = useState(isFs());
 
   const countRef = useRef(0);
   const lastRef = useRef(0);
@@ -35,11 +40,14 @@ export function useExamProctoring({ enabled, maxViolations, onViolation, onLimit
 
   const enterFullscreen = useCallback(async () => {
     try {
-      await document.documentElement.requestFullscreen();
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+      setIsFullscreen(isFs());
       // Chromium only: makes Esc require a long-press instead of exiting instantly
       await (navigator as any).keyboard?.lock?.(["Escape"]);
     } catch {
-      /* user denied or unsupported */
+      setIsFullscreen(isFs());
     }
   }, []);
 
@@ -48,8 +56,22 @@ export function useExamProctoring({ enabled, maxViolations, onViolation, onLimit
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }, []);
 
+  // Always keep isFullscreen in sync, regardless of `enabled`
+  useEffect(() => {
+    const sync = () => setIsFullscreen(isFs());
+    sync(); // catch changes that happened before this listener existed
+    document.addEventListener("fullscreenchange", sync);
+    window.addEventListener("resize", sync);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      window.removeEventListener("resize", sync);
+    };
+  }, []);
+
   useEffect(() => {
     if (!enabled) return;
+
+    setIsFullscreen(isFs()); // resync the moment proctoring starts
 
     const stop = (e: Event) => e.preventDefault();
 
@@ -58,9 +80,7 @@ export function useExamProctoring({ enabled, maxViolations, onViolation, onLimit
     };
     const onBlur = () => record("window_blur", "The test window lost focus.");
     const onFullscreen = () => {
-      const fs = !!document.fullscreenElement;
-      setIsFullscreen(fs);
-      if (!fs) record("fullscreen_exit", "You exited full screen mode.");
+      if (!document.fullscreenElement) record("fullscreen_exit", "You exited full screen mode.");
     };
 
     const onKeyDown = (e: KeyboardEvent) => {

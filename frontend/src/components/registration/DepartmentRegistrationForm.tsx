@@ -38,6 +38,27 @@ export default function DepartmentRegistrationForm({
 
   const [tpos, setTpos] = useState<RegistrationTPO[]>([]);
   const [loadingTPOs, setLoadingTPOs] = useState(true);
+const [showPassword, setShowPassword] = useState(false);
+const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+const passwordRequirements = {
+  minLength: form.password.length >= 8,
+  uppercase: /[A-Z]/.test(form.password),
+  lowercase: /[a-z]/.test(form.password),
+  number: /[0-9]/.test(form.password),
+  special: /[^A-Za-z0-9]/.test(form.password),
+};
+
+const passwordIsValid =
+  passwordRequirements.minLength &&
+  passwordRequirements.uppercase &&
+  passwordRequirements.lowercase &&
+  passwordRequirements.number &&
+  passwordRequirements.special;
+
+const passwordsMatch =
+  form.confirm_password.length > 0 &&
+  form.password === form.confirm_password;
 
   useEffect(() => {
     async function loadTPOs() {
@@ -187,31 +208,120 @@ export default function DepartmentRegistrationForm({
         />
       </label>
 
-      <label className={labelCls}>
-        Password
-        <input
-          className={inputCls}
-          type="password"
-          name="password"
-          value={form.password}
-          onChange={handleChange}
-          required
-          minLength={8}
-        />
-      </label>
+ <label className={labelCls}>
+  Password
 
-      <label className={labelCls}>
-        Confirm Password
-        <input
-          className={inputCls}
-          type="password"
-          name="confirm_password"
-          value={form.confirm_password}
-          onChange={handleChange}
-          required
-          minLength={8}
-        />
-      </label>
+  <div className="relative">
+    <input
+      className={`${inputCls} pr-16 ${
+        form.password && passwordIsValid
+          ? "border-green-600 focus:border-green-600 focus:ring-green-600"
+          : ""
+      }`}
+      type={showPassword ? "text" : "password"}
+      name="password"
+      value={form.password}
+      onChange={handleChange}
+      required
+      minLength={8}
+      autoComplete="new-password"
+    />
+
+    <button
+      type="button"
+      onClick={() => setShowPassword((prev) => !prev)}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[#7a4a25] hover:text-[#63391b] transition-colors"
+      aria-label={showPassword ? "Hide password" : "Show password"}
+    >
+      {showPassword ? "Hide" : "Show"}
+    </button>
+  </div>
+
+  {form.password && !passwordIsValid && (
+    <div className="mt-2.5 text-xs text-[#8a7a5c]">
+      <p className="mb-1 text-[11px] uppercase tracking-wide text-[#a08e6d]">
+        Still needed
+      </p>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {!passwordRequirements.minLength && (
+          <span>• 8+ characters</span>
+        )}
+
+        {!passwordRequirements.uppercase && (
+          <span>• Uppercase letter</span>
+        )}
+
+        {!passwordRequirements.lowercase && (
+          <span>• Lowercase letter</span>
+        )}
+
+        {!passwordRequirements.number && (
+          <span>• Number</span>
+        )}
+
+        {!passwordRequirements.special && (
+          <span>• Special character</span>
+        )}
+      </div>
+    </div>
+  )}
+
+  {form.password && passwordIsValid && (
+    <p className="mt-2 text-xs text-green-700">
+      ✓ Password requirements met
+    </p>
+  )}
+</label>
+
+<label className={labelCls}>
+  Confirm Password
+
+  <div className="relative">
+    <input
+      className={`${inputCls} pr-16 ${
+        form.confirm_password
+          ? passwordsMatch
+            ? "border-green-600 focus:border-green-600 focus:ring-green-600"
+            : "border-red-400 focus:border-red-400 focus:ring-red-400"
+          : ""
+      }`}
+      type={showConfirmPassword ? "text" : "password"}
+      name="confirm_password"
+      value={form.confirm_password}
+      onChange={handleChange}
+      required
+      minLength={8}
+      autoComplete="new-password"
+    />
+
+    <button
+      type="button"
+      onClick={() => setShowConfirmPassword((prev) => !prev)}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[#7a4a25] hover:text-[#63391b] transition-colors"
+      aria-label={
+        showConfirmPassword
+          ? "Hide confirm password"
+          : "Show confirm password"
+      }
+    >
+      {showConfirmPassword ? "Hide" : "Show"}
+    </button>
+  </div>
+
+  {form.confirm_password && (
+    <p
+      className={`mt-2 text-xs ${
+        passwordsMatch ? "text-green-700" : "text-red-600"
+      }`}
+    >
+      {passwordsMatch
+        ? "✓ Passwords match"
+        : "Passwords do not match"}
+    </p>
+  )}
+</label>
+
 
       <label className={labelCls} htmlFor="tpo_profile_id">
         Select TPO

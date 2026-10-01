@@ -159,7 +159,8 @@ def register_student(
     data,
 ) -> User:
 
-    login_email = str(data.college_email).strip().lower()
+    login_email = str(data.personal_email).strip().lower()
+    college_email = str(data.college_email).strip().lower()
 
     check_email_available(db, login_email)
 
@@ -189,8 +190,8 @@ def register_student(
         user_id=user.id,
         department_profile_id=department.id,
         full_name=data.full_name.strip(),
-        college_email=login_email,
-        personal_email=str(data.personal_email).lower(),
+        college_email=college_email,
+        personal_email=login_email,
         phone_number=data.phone_number.strip(),
         date_of_birth=data.date_of_birth,
         gender=data.gender.strip(),

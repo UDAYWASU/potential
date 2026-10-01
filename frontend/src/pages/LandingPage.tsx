@@ -18,14 +18,10 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <nav className="hidden md:flex items-center space-x-10 text-sm text-[#5c4d33]">
-              <a href="#capabilities" className="hover:text-[#7a4a25] transition-colors">Capabilities</a>
-              <a href="#about" className="hover:text-[#7a4a25] transition-colors">About</a>
-              <Link to="/login" className="hover:text-[#7a4a25] transition-colors">Sign in</Link>
-            </nav>
+          
 
             <Link
-              to="/register"
+              to="/login"
               className="inline-flex items-center px-5 py-2 rounded-sm text-sm tracking-wide text-[#f3e6c9] bg-[#7a4a25] hover:bg-[#63391b] transition-colors"
             >
               Get Started
