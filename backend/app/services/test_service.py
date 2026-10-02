@@ -49,18 +49,26 @@ def create_department_test(
     db.flush()
 
     if data.mode == "MANUAL":
-        for index, question in enumerate(
-            data.manual_questions,
-            start=1,
-        ):
+        for index, question in enumerate(data.manual_questions, start=1):
+        
+            question_content = {
+                **question.question_content.model_dump(exclude_none=True),
+                "subject": question.subject,
+                "topic": question.topic,
+                "question_type": question.question_type,
+            }
+    
+            if question.explanation:
+                question_content["explanation"] = question.explanation
+    
             test_question = TestQuestion(
                 test_id=test.id,
                 sequence_number=index,
-                question_content=question.question_content,
-                answer=question.answer,
+                question_content=question_content,
+                answer=question.answer.model_dump(exclude_none=True),
                 marks=question.marks,
             )
-
+    
             db.add(test_question)
 
     db.commit()

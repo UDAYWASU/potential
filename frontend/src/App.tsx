@@ -28,6 +28,8 @@ import DepartmentStudentDetail from "./pages/department/DepartmentStudentDetail"
 import DepartmentTestControls from "./pages/department/DepartmentTestControls";
 
 import StudentTestAttempt from "./pages/student/StudentTestAttempt";
+import ContactPage from "./pages/ContactPage"; // adjust path to wherever you save it
+
 
 
 function App() {
@@ -56,6 +58,7 @@ function App() {
         />
 
 
+        <Route path="/contact" element={<ContactPage />} />
         {/* =====================================================
             PROTECTED ROUTES
         ===================================================== */}

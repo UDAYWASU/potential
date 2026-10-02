@@ -20,6 +20,36 @@ export interface TestRequirement {
   marks?: number;
 }
 
+export type QuestionType = "WRITTEN" | "CODING" | "SPOKEN" | "MCQ";
+
+export interface ManualQuestionOption {
+  id: string;   // "A", "B", "C", "D"...
+  text: string;
+}
+
+export interface ManualQuestionContent {
+  text: string;
+  options?: ManualQuestionOption[]; // present only for MCQ
+  image_url?: string;
+  audio_url?: string;
+}
+
+export interface ManualQuestionAnswer {
+  correct_option_id?: string; // for MCQ
+  text?: string;              // for WRITTEN / CODING / SPOKEN
+}
+
+export interface ManualQuestion {
+  question_type: QuestionType;
+  subject: string;
+  topic?: string;
+  subtopic?: string;
+  question_content: ManualQuestionContent;
+  answer: ManualQuestionAnswer;
+  marks: number;
+  explanation?: string;
+}
+
 export interface CreateTestRequest {
   title: string;
   description?: string;
@@ -29,6 +59,8 @@ export interface CreateTestRequest {
     requirements?: TestRequirement[];
     [key: string]: unknown;
   };
+  manual_questions?: ManualQuestion[];
+  adaptive_subjects?: string[];
 }
 
 export interface TestResponse {
@@ -73,46 +105,6 @@ export function releaseTest(testId: string) {
       method: "POST",
     },
   );
-}
-
-
-// api/tests.ts — additions (keep everything else in this file as-is)
-
-export type QuestionType = "WRITTEN" | "CODING" | "SPOKEN" | "MCQ";
-
-export interface ManualQuestionContent {
-  text?: string;
-  image_url?: string;
-  audio_url?: string;
-}
-
-export interface ManualQuestion {
-  question_type: QuestionType;
-  subject: string;
-  topic?: string;
-  subtopic?: string;
-  question_content: ManualQuestionContent;
-  options?: string[];      // used only for MCQ
-  answer: {
-    text?: string;
-    option_index?: number; // used only for MCQ
-  };
-  marks: number;
-  question_metadata?: Record<string, unknown>;
-}
-
-// Extend your existing CreateTestRequest:
-export interface CreateTestRequest {
-  title: string;
-  description?: string;
-  mode: TestMode;
-  duration_minutes?: number;
-  configuration?: {
-    requirements?: TestRequirement[];
-    [key: string]: unknown;
-  };
-  manual_questions?: ManualQuestion[];
-  adaptive_subjects?: string[];
 }
 
 export interface DepartmentTestDetail {

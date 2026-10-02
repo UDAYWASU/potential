@@ -8,6 +8,7 @@ import type {
   TestMode,
   TestRequirement,
   ManualQuestion,
+  ManualQuestionOption,
   QuestionType,
 } from "../../api/tests";
 import { useNavigate, Link } from "react-router-dom";
@@ -44,16 +45,27 @@ const emptyRequirement: TestRequirement = {
   marks: 1,
 };
 
+const OPTION_IDS = ["A", "B", "C", "D", "E", "F"];
+
+function emptyOptions(): ManualQuestionOption[] {
+  return [
+    { id: "A", text: "" },
+    { id: "B", text: "" },
+    { id: "C", text: "" },
+    { id: "D", text: "" },
+  ];
+}
+
 function emptyManualQuestion(): ManualQuestion {
   return {
     question_type: "MCQ",
     subject: "",
     topic: "",
     subtopic: "",
-    question_content: { text: "" },
-    options: ["", "", "", ""],
-    answer: { option_index: 0 },
+    question_content: { text: "", options: emptyOptions() },
+    answer: { correct_option_id: "A" },
     marks: 1,
+    explanation: "",
   };
 }
 
@@ -69,9 +81,6 @@ export default function TestCreationPage() {
   // Manual mode state
   const [manualQuestions, setManualQuestions] = useState<ManualQuestion[]>([emptyManualQuestion()]);
   const [openQuestion, setOpenQuestion] = useState(0);
-
-  // Adaptive mode state
-  const [adaptiveSubjects, setAdaptiveSubjects] = useState<string[]>([""]);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -96,7 +105,11 @@ export default function TestCreationPage() {
     setManualQuestions((current) => current.map((q, i) => (i === index ? { ...q, ...patch } : q)));
   }
 
-  function updateQuestionContent(index: number, field: keyof ManualQuestion["question_content"], value: string) {
+  function updateQuestionContentField(
+    index: number,
+    field: "text" | "image_url" | "audio_url",
+    value: string,
+  ) {
     setManualQuestions((current) =>
       current.map((q, i) =>
         i === index ? { ...q, question_content: { ...q.question_content, [field]: value } } : q,
@@ -104,20 +117,29 @@ export default function TestCreationPage() {
     );
   }
 
-  function updateOption(qIndex: number, optIndex: number, value: string) {
+  function updateOptionText(qIndex: number, optIndex: number, value: string) {
     setManualQuestions((current) =>
       current.map((q, i) => {
         if (i !== qIndex) return q;
-        const options = [...(q.options ?? [])];
-        options[optIndex] = value;
-        return { ...q, options };
+        const options = [...(q.question_content.options ?? [])];
+        options[optIndex] = { ...options[optIndex], text: value };
+        return { ...q, question_content: { ...q.question_content, options } };
       }),
     );
   }
 
   function addOption(qIndex: number) {
     setManualQuestions((current) =>
-      current.map((q, i) => (i === qIndex ? { ...q, options: [...(q.options ?? []), ""] } : q)),
+      current.map((q, i) => {
+        if (i !== qIndex) return q;
+        const options = q.question_content.options ?? [];
+        if (options.length >= OPTION_IDS.length) return q;
+        const nextId = OPTION_IDS[options.length];
+        return {
+          ...q,
+          question_content: { ...q.question_content, options: [...options, { id: nextId, text: "" }] },
+        };
+      }),
     );
   }
 
@@ -125,12 +147,18 @@ export default function TestCreationPage() {
     setManualQuestions((current) =>
       current.map((q, i) => {
         if (i !== qIndex) return q;
-        const options = (q.options ?? []).filter((_, oi) => oi !== optIndex);
-        const currentAnswerIndex = q.answer.option_index ?? 0;
+        const remaining = (q.question_content.options ?? []).filter((_, oi) => oi !== optIndex);
+        // Re-letter so ids stay contiguous A, B, C...
+        const relabeled = remaining.map((opt, idx) => ({ ...opt, id: OPTION_IDS[idx] }));
+        const removedId = q.question_content.options?.[optIndex]?.id;
+        const nextCorrect =
+          q.answer.correct_option_id === removedId
+            ? relabeled[0]?.id ?? ""
+            : q.answer.correct_option_id;
         return {
           ...q,
-          options,
-          answer: { ...q.answer, option_index: Math.min(currentAnswerIndex, options.length - 1) },
+          question_content: { ...q.question_content, options: relabeled },
+          answer: { correct_option_id: nextCorrect },
         };
       }),
     );
@@ -139,8 +167,11 @@ export default function TestCreationPage() {
   function handleQuestionTypeChange(index: number, type: QuestionType) {
     updateManualQuestion(index, {
       question_type: type,
-      options: type === "MCQ" ? ["", "", "", ""] : undefined,
-      answer: type === "MCQ" ? { option_index: 0 } : { text: "" },
+      question_content:
+        type === "MCQ"
+          ? { ...manualQuestions[index].question_content, options: emptyOptions() }
+          : { text: manualQuestions[index].question_content.text },
+      answer: type === "MCQ" ? { correct_option_id: "A" } : { text: "" },
     });
   }
 
@@ -154,44 +185,39 @@ export default function TestCreationPage() {
     setOpenQuestion(0);
   }
 
-async function handleMediaUpload(
-  index: number,
-  field: "image_url" | "audio_url",
-  file: File | null,
-) {
-  if (!file) return;
+  async function handleMediaUpload(index: number, field: "image_url" | "audio_url", file: File | null) {
+    if (!file) return;
 
-  try {
-    setError("");
-
-    const result =
-      field === "image_url"
-        ? await uploadImage(file)
-        : await uploadAudio(file);
-
-    updateQuestionContent(index, field, result.file_url);
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "Unable to upload file.");
-  }
-}
-
-  // --- Adaptive helpers ---
-
-  function updateAdaptiveSubject(index: number, value: string) {
-    setAdaptiveSubjects((current) => current.map((s, i) => (i === index ? value : s)));
-  }
-
-  function addAdaptiveSubject() {
-    setAdaptiveSubjects((current) => [...current, ""]);
-  }
-
-  function removeAdaptiveSubject(index: number) {
-    setAdaptiveSubjects((current) => current.filter((_, i) => i !== index));
+    try {
+      setError("");
+      const result = field === "image_url" ? await uploadImage(file) : await uploadAudio(file);
+      updateQuestionContentField(index, field, result.file_url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to upload file.");
+    }
   }
 
   const totalQuestions = requirements.reduce((sum, r) => sum + (Number(r.count) || 0), 0);
   const totalMarks = requirements.reduce((sum, r) => sum + (Number(r.marks) || 0) * (Number(r.count) || 0), 0);
   const manualTotalMarks = manualQuestions.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
+
+  function validateManualQuestions(): string | null {
+    for (let i = 0; i < manualQuestions.length; i++) {
+      const q = manualQuestions[i];
+      if (!q.subject.trim()) return `Question ${i + 1}: Subject is required.`;
+      if (!q.question_content.text.trim()) return `Question ${i + 1}: Question text is required.`;
+
+      if (q.question_type === "MCQ") {
+        const options = q.question_content.options ?? [];
+        if (options.length < 2) return `Question ${i + 1}: Add at least two options.`;
+        if (options.some((o) => !o.text.trim())) return `Question ${i + 1}: Fill in all option text.`;
+        if (!q.answer.correct_option_id) return `Question ${i + 1}: Select the correct option.`;
+      } else {
+        if (!q.answer.text?.trim()) return `Question ${i + 1}: Add a reference answer.`;
+      }
+    }
+    return null;
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -200,16 +226,24 @@ async function handleMediaUpload(
       setLoading(true);
       setError("");
 
-      if (mode === "MANUAL" && manualQuestions.length === 0) {
-        setError("Add at least one question.");
+      if (mode === "ADAPTIVE") {
+        setError("Adaptive test creation is not available yet.");
         setLoading(false);
         return;
       }
 
-      if (mode === "ADAPTIVE" && adaptiveSubjects.filter((s) => s.trim()).length === 0) {
-        setError("Add at least one subject.");
-        setLoading(false);
-        return;
+      if (mode === "MANUAL") {
+        if (manualQuestions.length === 0) {
+          setError("Add at least one question.");
+          setLoading(false);
+          return;
+        }
+        const validationError = validateManualQuestions();
+        if (validationError) {
+          setError(validationError);
+          setLoading(false);
+          return;
+        }
       }
 
       const configuration = mode === "AUTOMATIC" ? { requirements } : undefined;
@@ -218,11 +252,9 @@ async function handleMediaUpload(
         title,
         description,
         mode,
-        duration_minutes: mode === "ADAPTIVE" ? undefined : Number(duration),
+        duration_minutes: Number(duration),
         configuration,
         manual_questions: mode === "MANUAL" ? manualQuestions : undefined,
-        adaptive_subjects:
-          mode === "ADAPTIVE" ? adaptiveSubjects.filter((s) => s.trim()) : undefined,
       });
 
       navigate("/department/tests");
@@ -445,15 +477,14 @@ async function handleMediaUpload(
                 These questions apply only to this test — they won't be added to the question bank.
               </p>
 
-              {/* Question list */}
               <div className="space-y-3">
                 {manualQuestions.map((q, index) => {
                   const isOpen = openQuestion === index;
                   const previewText = q.question_content.text?.trim() || "Untitled question";
+                  const options = q.question_content.options ?? [];
 
                   return (
                     <div key={index} className="border border-[#d8cbb0] bg-[#faf7ef]">
-                      {/* Row header */}
                       <button
                         type="button"
                         onClick={() => setOpenQuestion(isOpen ? -1 : index)}
@@ -474,7 +505,6 @@ async function handleMediaUpload(
                         </div>
                       </button>
 
-                      {/* Expanded editor */}
                       {isOpen && (
                         <div className="px-5 pb-6 pt-1 border-t border-[#d8cbb0]">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -523,18 +553,26 @@ async function handleMediaUpload(
                             </div>
                           </div>
 
-                          {/* Question content */}
                           <div className="mb-4">
                             <label className={labelCls}>Question Text</label>
                             <textarea
                               className={inputCls}
                               rows={3}
-                              value={q.question_content.text ?? ""}
-                              onChange={(event) => updateQuestionContent(index, "text", event.target.value)}
+                              value={q.question_content.text}
+                              onChange={(event) => updateQuestionContentField(index, "text", event.target.value)}
                               placeholder="Type the question here"
                             />
                           </div>
-
+<div className="mb-5">
+  <label className={labelCls}>Explanation (optional)</label>
+  <textarea
+    className={inputCls}
+    rows={2}
+    value={q.explanation ?? ""}
+    onChange={(event) => updateManualQuestion(index, { explanation: event.target.value })}
+    placeholder="Briefly explain why the correct answer is correct"
+  />
+</div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                             <div>
                               <label className={labelCls}>Attach Image (optional)</label>
@@ -543,25 +581,18 @@ async function handleMediaUpload(
                                 type="file"
                                 accept="image/*"
                                 onChange={(event) =>
-  handleMediaUpload(
-    index,
-    "image_url",
-    event.target.files?.[0] ?? null
-  )
-}
-
+                                  handleMediaUpload(index, "image_url", event.target.files?.[0] ?? null)
+                                }
                               />
-                              {q.question_content.audio_url && (
-  <div className="mt-2">
-    <audio controls className="w-full">
-      <source
-        src={`http://localhost:8000${q.question_content.audio_url}`}
-      />
-      Your browser does not support audio.
-    </audio>
-  </div>
-)}
-
+                              {q.question_content.image_url && (
+                                <div className="mt-2">
+                                  <img
+                                    src={`http://localhost:8000${q.question_content.image_url}`}
+                                    alt="Question attachment"
+                                    className="max-h-40 max-w-full border border-[#d8cbb0] object-contain"
+                                  />
+                                </div>
+                              )}
                             </div>
                             <div>
                               <label className={labelCls}>Attach Audio (optional)</label>
@@ -569,51 +600,44 @@ async function handleMediaUpload(
                                 className="text-xs text-[#5c4d33] file:mr-3 file:py-2 file:px-3 file:border file:border-[#c9b98f] file:bg-white file:text-xs file:text-[#7a4a25] file:cursor-pointer w-full border border-[#c9b98f] bg-white py-1.5"
                                 type="file"
                                 accept="audio/*"
-                               onChange={(event) =>
-  handleMediaUpload(
-    index,
-    "audio_url",
-    event.target.files?.[0] ?? null
-  )
-}
-
+                                onChange={(event) =>
+                                  handleMediaUpload(index, "audio_url", event.target.files?.[0] ?? null)
+                                }
                               />
-                              {q.question_content.image_url && (
-  <div className="mt-2">
-    <img
-      src={`http://localhost:8000${q.question_content.image_url}`}
-      alt="Question attachment"
-      className="max-h-40 max-w-full border border-[#d8cbb0] object-contain"
-    />
-  </div>
-)}
-
+                              {q.question_content.audio_url && (
+                                <div className="mt-2">
+                                  <audio controls className="w-full">
+                                    <source src={`http://localhost:8000${q.question_content.audio_url}`} />
+                                    Your browser does not support audio.
+                                  </audio>
+                                </div>
+                              )}
                             </div>
                           </div>
 
-                          {/* Answer section — depends on type */}
                           {q.question_type === "MCQ" ? (
                             <div>
                               <label className={labelCls}>Options — select the correct one</label>
                               <div className="space-y-2">
-                                {(q.options ?? []).map((opt, optIndex) => (
-                                  <div key={optIndex} className="flex items-center gap-3">
+                                {options.map((opt, optIndex) => (
+                                  <div key={opt.id} className="flex items-center gap-3">
                                     <input
                                       type="radio"
                                       name={`correct-${index}`}
-                                      checked={q.answer.option_index === optIndex}
+                                      checked={q.answer.correct_option_id === opt.id}
                                       onChange={() =>
-                                        updateManualQuestion(index, { answer: { option_index: optIndex } })
+                                        updateManualQuestion(index, { answer: { correct_option_id: opt.id } })
                                       }
                                       className="accent-[#7a4a25]"
                                     />
+                                    <span className="text-xs text-[#8a7a5c] w-5">{opt.id}</span>
                                     <input
                                       className={inputCls}
-                                      placeholder={`Option ${optIndex + 1}`}
-                                      value={opt}
-                                      onChange={(event) => updateOption(index, optIndex, event.target.value)}
+                                      placeholder={`Option ${opt.id}`}
+                                      value={opt.text}
+                                      onChange={(event) => updateOptionText(index, optIndex, event.target.value)}
                                     />
-                                    {(q.options ?? []).length > 2 && (
+                                    {options.length > 2 && (
                                       <button
                                         type="button"
                                         onClick={() => removeOption(index, optIndex)}
@@ -625,7 +649,7 @@ async function handleMediaUpload(
                                   </div>
                                 ))}
                               </div>
-                              {(q.options ?? []).length < 6 && (
+                              {options.length < OPTION_IDS.length && (
                                 <button
                                   type="button"
                                   onClick={() => addOption(index)}
@@ -682,51 +706,21 @@ async function handleMediaUpload(
             </section>
           )}
 
-          {/* ADAPTIVE */}
+          {/* ADAPTIVE — coming soon */}
           {mode === "ADAPTIVE" && (
-            <section className="border border-[#d8cbb0] bg-white/60 p-7">
-              <h2 className="text-xs tracking-[0.15em] uppercase text-[#8a7a5c] mb-2">Subjects</h2>
-              <p className="text-xs text-[#8a7a5c] mb-5 leading-relaxed">
-                Difficulty, question count and duration are set automatically per student, based on their
-                past performance. You only choose which subjects this test covers.
+            <section className="border border-[#d8cbb0] bg-white/60 p-10 text-center">
+              <h2 className="text-base font-serif font-medium text-[#2b2318]">Adaptive Tests — Coming Soon</h2>
+              <p className="mt-3 text-sm text-[#5c4d33] leading-relaxed max-w-md mx-auto">
+                Adaptive test creation will be available after Diwali 2026. Until then, please use
+                Automatic or Manual mode.
               </p>
-
-              <div className="space-y-2">
-                {adaptiveSubjects.map((subject, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <input
-                      className={inputCls}
-                      value={subject}
-                      onChange={(event) => updateAdaptiveSubject(index, event.target.value)}
-                      placeholder="e.g. Logical Reasoning"
-                    />
-                    {adaptiveSubjects.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeAdaptiveSubject(index)}
-                        className="text-xs text-[#8a7a5c] hover:text-[#7a3a1a] transition-colors"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={addAdaptiveSubject}
-                className="mt-3 text-xs text-[#7a4a25] hover:underline"
-              >
-                + Add subject
-              </button>
             </section>
           )}
 
           <div className="flex items-center gap-3 pt-2">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || mode === "ADAPTIVE"}
               className="px-6 py-3 text-sm tracking-wide text-[#f3e6c9] bg-[#7a4a25] hover:bg-[#63391b] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? "Creating..." : "Create Test"}

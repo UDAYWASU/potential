@@ -18,7 +18,9 @@ export default function LandingPage() {
               </div>
             </div>
 
-          
+<nav className="hidden md:flex items-center space-x-10 text-sm text-[#5c4d33]">
+  <Link to="/contact" className="hover:text-[#7a4a25] transition-colors">Contact</Link>
+</nav>
 
             <Link
               to="/login"
